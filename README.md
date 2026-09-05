@@ -16,7 +16,7 @@ Grab the latest standalone executable from the **[Releases](https://github.com/n
 
 ## 🛠️ Running from Source
 
-`ash
+
 git clone [https://github.com/nullpointer-ghost/PhantomDesk.git](https://github.com/nullpointer-ghost/PhantomDesk.git)
 cd PhantomDesk
 pip install customtkinter
