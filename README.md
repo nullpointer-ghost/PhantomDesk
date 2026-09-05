@@ -92,6 +92,10 @@ The compiled output will be located in the `dist/` directory.
 * **Full Transparency:** Every system command (such as `taskkill`, `attrib`, `sc`, or `reg`) is completely open-source and reviewable directly inside `app.py`.
 
 ---
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/57097dd7-b43c-4ba9-aaec-3e1f72f46dff" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/73d180f1-875b-4fad-9284-f00c8a5211e3" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/23edd8ae-6ec8-43a0-b36c-1e57e359bc70" />
+
 
 ## 🗺️ Roadmap
 
@@ -104,4 +108,5 @@ The compiled output will be located in the `dist/` directory.
 
 ## ⚖️ License
 
-Distributed under the **MIT License**. See `LICENSE` for more infor
+Distributed under the **MIT License**. See `LICENSE` for more information
+
