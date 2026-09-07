@@ -1,6 +1,7 @@
 """
 PhantomDesk v4.5 Pro // High-Performance Windows Cloaking & Optimization Hub
 Architecture: Threaded Asynchronous Scanning, Batched UI Rendering & Reversible Tweaks
+Engine: Direct Native Win32 / Kernel32 / Winreg Integration
 License: MIT
 """
 
@@ -15,6 +16,12 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 import winreg
 import customtkinter as ctk
+
+# Import the native Win32 engine
+import win32_engine as engine
+
+# Windows creation flag to suppress any console window spawning
+CREATE_NO_WINDOW = 0x08000000
 
 # -----------------------------------------------------------------------------
 # Dynamic Theme Palette: (Light Mode Color, Dark Mode Color)
@@ -66,39 +73,23 @@ TWEAKS_CATALOG = [
     {"id": "game_ultimate_power", "cat": "Gaming & Latency", "name": "Activate Ultimate Performance Plan", "desc": "Unlocks workstation power scheme that disables CPU core sleep.", "reversible": True},
     {"id": "game_disable_dvr", "cat": "Gaming & Latency", "name": "Disable GameDVR Background Capture", "desc": "Turns off background video recording to eliminate a 10-15% FPS hit.", "reversible": True},
     {"id": "game_disable_gamebar", "cat": "Gaming & Latency", "name": "Disable Xbox Game Bar Overlays", "desc": "Stops Win+G hooks from creating DirectX overlay latency.", "reversible": True},
-    {"id": "game_disable_nagle", "cat": "Gaming & Latency", "name": "Disable Nagle's Algorithm (TCP NoDelay)", "desc": "Reduces network latency and packet buffer waits in multiplayer games.", "reversible": True},
-    {"id": "game_network_throttling", "cat": "Gaming & Latency", "name": "Disable Network Throttling Index", "desc": "Removes network packet caps during non-multimedia applications.", "reversible": True},
     {"id": "game_mouse_accel", "cat": "Gaming & Latency", "name": "Disable Mouse Acceleration", "desc": "Enforces 1:1 linear mouse input without acceleration curves.", "reversible": True},
-    {"id": "game_disable_fso", "cat": "Gaming & Latency", "name": "Disable Fullscreen Optimizations", "desc": "Eliminates DWM presentation latency in exclusive fullscreen games.", "reversible": True},
-    {"id": "game_pause_indexer", "cat": "Gaming & Latency", "name": "Pause Windows Search Indexer", "desc": "Temporarily pauses WSearch to prevent NVMe/SSD gaming stutter.", "reversible": True},
-    {"id": "game_restart_audio", "cat": "Gaming & Latency", "name": "Restart Audio Subsystem (Audiosrv)", "desc": "Recycles Windows sound service if game audio cuts out.", "reversible": False},
-    {"id": "game_kill_browsers", "cat": "Gaming & Latency", "name": "Purge Orphaned Browser Tasks", "desc": "Terminates lingering background Edge and Chrome child processes.", "reversible": False},
 
     # Privacy & Telemetry
     {"id": "priv_diagtrack", "cat": "Privacy & Telemetry", "name": "Disable DiagTrack Telemetry Service", "desc": "Stops Connected User Experiences and Telemetry background service.", "reversible": True},
     {"id": "priv_wer", "cat": "Privacy & Telemetry", "name": "Disable Windows Error Reporting (WER)", "desc": "Blocks crash telemetry and diagnostic dump generation.", "reversible": True},
     {"id": "priv_ad_id", "cat": "Privacy & Telemetry", "name": "Disable Advertising ID Profile", "desc": "Prevents applications from tracking ad preferences across software.", "reversible": True},
     {"id": "priv_location", "cat": "Privacy & Telemetry", "name": "Disable Location Tracking Sensors", "desc": "Shuts off Windows system location querying APIs.", "reversible": True},
-    {"id": "priv_activity_history", "cat": "Privacy & Telemetry", "name": "Disable Activity History Timeline", "desc": "Prevents Windows from storing file, app, and browse timelines.", "reversible": True},
-    {"id": "priv_feedback_prompts", "cat": "Privacy & Telemetry", "name": "Disable Feedback Telemetry Prompts", "desc": "Sets Windows customer feedback dialogue requests to 'Never'.", "reversible": True},
-    {"id": "priv_inking_telemetry", "cat": "Privacy & Telemetry", "name": "Disable Inking & Typing Telemetry", "desc": "Blocks keyboard usage sample transmission to Microsoft servers.", "reversible": True},
     {"id": "priv_wipe_clipboard", "cat": "Privacy & Telemetry", "name": "Purge Clipboard & History Memory", "desc": "Wipes current copy buffer and the Win+V history clipboard cache.", "reversible": False},
     {"id": "priv_clear_recent", "cat": "Privacy & Telemetry", "name": "Clear Recent Documents & JumpLists", "desc": "Wipes all recent file records from %APPDATA%\\Recent.", "reversible": False},
 
     # Junk & Purge
     {"id": "junk_clean_temp", "cat": "Junk & Purge", "name": "Purge User & System Temp Directories", "desc": "Empties %TEMP% scratch files to free storage drives.", "reversible": False},
-    {"id": "junk_softwaredist", "cat": "Junk & Purge", "name": "Clean Windows Update Download Cache", "desc": "Deletes downloaded update files to reclaim gigabytes of space.", "reversible": False},
-    {"id": "junk_delivery_opt", "cat": "Junk & Purge", "name": "Clean Delivery Optimization Cache", "desc": "Wipes peer-to-peer Windows update distribution fragments.", "reversible": False},
-    {"id": "junk_crash_dumps", "cat": "Junk & Purge", "name": "Wipe Crash Dumps & Minidump Records", "desc": "Deletes memory fault dumps in %LOCALAPPDATA%\\CrashDumps.", "reversible": False},
     {"id": "junk_empty_recycle", "cat": "Junk & Purge", "name": "Silently Empty All Recycle Bins", "desc": "Empties all drive bins without showing OS confirmation boxes.", "reversible": False},
 
     # Diagnostics & Shell
-    {"id": "diag_restart_explorer", "cat": "Diagnostics & Fixes", "name": "Restart Windows Explorer Shell", "desc": "Restarts explorer.exe to instantly load system and icon changes.", "reversible": False},
-    {"id": "diag_rebuild_icon_cache", "cat": "Diagnostics & Fixes", "name": "Rebuild Corrupted Icon Cache", "desc": "Purges IconCache.db and thumbnail stores to restore missing icons.", "reversible": False},
-    {"id": "diag_flush_dns", "cat": "Diagnostics & Fixes", "name": "Flush DNS Resolver Cache", "desc": "Flushes DNS cache to resolve inaccessible network paths.", "reversible": False},
-    {"id": "diag_reset_winsock", "cat": "Diagnostics & Fixes", "name": "Reset Winsock Network Catalog", "desc": "Resets TCP/IP sockets to resolve system internet connectivity drops.", "reversible": False},
-    {"id": "diag_flush_spooler", "cat": "Diagnostics & Fixes", "name": "Flush Frozen Print Spooler Queue", "desc": "Deletes stuck printer spool records and unfreezes queue.", "reversible": False},
-    {"id": "diag_god_mode", "cat": "Diagnostics & Fixes", "name": "Create Desktop 'God Mode' Folder", "desc": "Creates a master control shortcut containing all 200+ OS panels.", "reversible": True}
+    {"id": "diag_restart_explorer", "cat": "Diagnostics & Fixes", "name": "Refresh Windows Explorer Shell", "desc": "Refreshes icon, desktop, and shell notification cache natively.", "reversible": False},
+    {"id": "diag_flush_dns", "cat": "Diagnostics & Fixes", "name": "Flush DNS Resolver Cache", "desc": "Flushes system DNS cache to resolve inaccessible network paths.", "reversible": False}
 ]
 
 
@@ -139,7 +130,7 @@ class PhantomDesk(ctk.CTk):
         threading.Thread(target=self._threaded_scan_apps, daemon=True).start()
 
     # -------------------------------------------------------------------------
-    # State Management (Tracks what has been executed so it can be reverted)
+    # State Management
     # -------------------------------------------------------------------------
     def load_state(self):
         try:
@@ -158,7 +149,7 @@ class PhantomDesk(ctk.CTk):
             pass
 
     # -------------------------------------------------------------------------
-    # Threaded Async Registry Scanning (Instant App Startup)
+    # Threaded Async Registry Scanning
     # -------------------------------------------------------------------------
     def _threaded_scan_apps(self):
         """Scans Windows Registry in the background without blocking the UI thread."""
@@ -216,7 +207,6 @@ class PhantomDesk(ctk.CTk):
             except OSError:
                 continue
 
-        # Safely pass data back to main UI thread
         self.after(0, lambda: self._on_scan_completed(found_apps))
 
     def _on_scan_completed(self, found_apps):
@@ -240,7 +230,6 @@ class PhantomDesk(ctk.CTk):
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         self.sidebar.grid_rowconfigure(8, weight=1)
 
-        # Branding
         brand_box = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         brand_box.pack(anchor="w", padx=20, pady=(24, 18))
 
@@ -557,7 +546,6 @@ class PhantomDesk(ctk.CTk):
         sub = ctk.CTkLabel(head, text="Execute system configurations with two-way reversibility. Divided into batches for instant responsiveness.", font=ctk.CTkFont(size=13), text_color=T_TEXT_MUTED)
         sub.pack(anchor="w")
 
-        # Category Filter Tabs
         cat_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         cat_frame.pack(fill="x", pady=(0, 10))
 
@@ -579,7 +567,6 @@ class PhantomDesk(ctk.CTk):
             )
             btn.pack(side="left", padx=(0, 6))
 
-        # Search Bar
         search_card = ctk.CTkFrame(self.main_container, fg_color=T_SURFACE, border_color=T_BORDER, border_width=1, corner_radius=8)
         search_card.pack(fill="x", pady=(0, 10), ipady=4, ipadx=8)
 
@@ -598,11 +585,9 @@ class PhantomDesk(ctk.CTk):
         )
         search_in.pack(fill="x", padx=6, pady=4)
 
-        # Batch Scrollable Frame
         self.tweaks_scroll = ctk.CTkScrollableFrame(self.main_container, fg_color="transparent")
         self.tweaks_scroll.pack(fill="both", expand=True)
 
-        # Pagination Footer
         self.page_footer = ctk.CTkFrame(self.main_container, fg_color=T_SURFACE, border_color=T_BORDER, border_width=1, corner_radius=8, height=44)
         self.page_footer.pack(fill="x", pady=(10, 0))
         self.page_footer.pack_propagate(False)
@@ -642,7 +627,6 @@ class PhantomDesk(ctk.CTk):
 
         q = self.tweak_search_var.get().lower() if hasattr(self, "tweak_search_var") else ""
 
-        # Filter tweaks by category & search string
         filtered = []
         for t in TWEAKS_CATALOG:
             if self.current_tweak_cat != "All" and t["cat"] != self.current_tweak_cat:
@@ -661,7 +645,6 @@ class PhantomDesk(ctk.CTk):
         end_idx = min(start_idx + self.tweaks_per_page, total_items)
         current_batch = filtered[start_idx:end_idx]
 
-        # Update Pagination Controls
         self.page_lbl.configure(text=f"Batch {self.current_tweak_page + 1} of {total_pages} ({total_items} items total)")
         self.prev_btn.configure(state="normal" if self.current_tweak_page > 0 else "disabled")
         self.next_btn.configure(state="normal" if self.current_tweak_page < total_pages - 1 else "disabled")
@@ -671,7 +654,6 @@ class PhantomDesk(ctk.CTk):
             none_lbl.pack(pady=30)
             return
 
-        # Render current batch only (Fast: ~10ms execution time)
         for tweak in current_batch:
             t_id = tweak["id"]
             is_applied = t_id in self.applied_tweaks
@@ -700,7 +682,6 @@ class PhantomDesk(ctk.CTk):
             desc_lbl = ctk.CTkLabel(box, text=tweak["desc"], font=ctk.CTkFont(size=12), text_color=T_TEXT_MUTED)
             desc_lbl.pack(anchor="w", pady=(2, 0))
 
-            # Action Controls (Apply vs Revert)
             action_box = ctk.CTkFrame(card, fg_color="transparent")
             action_box.pack(side="right", padx=10)
 
@@ -734,7 +715,7 @@ class PhantomDesk(ctk.CTk):
                 revert_btn.pack(side="left", padx=4)
 
     # -------------------------------------------------------------------------
-    # Reversible Execution Engine (Two-Way Action Handlers)
+    # Reversible Execution Engine (Native Win32 Integration)
     # -------------------------------------------------------------------------
     def execute_tweak_toggle(self, tweak, action="apply"):
         t_id = tweak["id"]
@@ -743,120 +724,134 @@ class PhantomDesk(ctk.CTk):
         try:
             # 1. Classic Context Menu
             if t_id == "win11_classic_menu":
-                clsid = r"HKCU\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
+                clsid_path = r"Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
                 if action == "apply":
-                    subprocess.run(f'reg add "{clsid}" /f /ve', shell=True)
+                    engine.win32_set_reg("HKCU", clsid_path, "", "REG_SZ", "")
                     self.applied_tweaks.add(t_id)
                 else:
-                    subprocess.run(r'reg delete "HKCU\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}" /f', shell=True)
+                    try:
+                        winreg.DeleteKey(winreg.HKEY_CURRENT_USER, clsid_path)
+                        winreg.DeleteKey(winreg.HKEY_CURRENT_USER, r"Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}")
+                    except OSError:
+                        pass
                     self.applied_tweaks.discard(t_id)
-                self.restart_explorer_silent()
+                engine.win32_refresh_shell()
 
             # 2. Taskbar Alignment
             elif t_id in ("win11_taskbar_left", "win11_taskbar_center"):
                 val = 0 if t_id == "win11_taskbar_left" and action == "apply" else 1
-                subprocess.run(f'reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v TaskbarAl /t REG_DWORD /d {val} /f', shell=True)
+                engine.win32_set_reg("HKCU", r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "TaskbarAl", "REG_DWORD", val)
                 if action == "apply": self.applied_tweaks.add(t_id)
                 else: self.applied_tweaks.discard(t_id)
 
             # 3. Widgets
             elif t_id == "win11_disable_widgets":
                 val = 0 if action == "apply" else 1
-                subprocess.run(f'reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v TaskbarDa /t REG_DWORD /d {val} /f', shell=True)
+                engine.win32_set_reg("HKCU", r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "TaskbarDa", "REG_DWORD", val)
                 if action == "apply": self.applied_tweaks.add(t_id)
                 else: self.applied_tweaks.discard(t_id)
 
             # 4. Copilot
             elif t_id == "win11_disable_copilot":
                 if action == "apply":
-                    subprocess.run(r'reg add "HKCU\Software\Policies\Microsoft\Windows\WindowsCopilot" /v TurnOffWindowsCopilot /t REG_DWORD /d 1 /f', shell=True)
+                    engine.win32_set_reg("HKCU", r"Software\Policies\Microsoft\Windows\WindowsCopilot", "TurnOffWindowsCopilot", "REG_DWORD", 1)
                     self.applied_tweaks.add(t_id)
                 else:
-                    subprocess.run(r'reg delete "HKCU\Software\Policies\Microsoft\Windows\WindowsCopilot" /v TurnOffWindowsCopilot /f', shell=True)
+                    engine.win32_delete_reg("HKCU", r"Software\Policies\Microsoft\Windows\WindowsCopilot", "TurnOffWindowsCopilot")
                     self.applied_tweaks.discard(t_id)
 
             # 5. Bing Search in Start
             elif t_id == "win11_disable_bing":
                 if action == "apply":
-                    subprocess.run(r'reg add "HKCU\Software\Policies\Microsoft\Windows\Explorer" /v DisableSearchBoxSuggestions /t REG_DWORD /d 1 /f', shell=True)
-                    subprocess.run(r'reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Search" /v BingSearchEnabled /t REG_DWORD /d 0 /f', shell=True)
+                    engine.win32_set_reg("HKCU", r"Software\Policies\Microsoft\Windows\Explorer", "DisableSearchBoxSuggestions", "REG_DWORD", 1)
+                    engine.win32_set_reg("HKCU", r"Software\Microsoft\Windows\CurrentVersion\Search", "BingSearchEnabled", "REG_DWORD", 0)
                     self.applied_tweaks.add(t_id)
                 else:
-                    subprocess.run(r'reg delete "HKCU\Software\Policies\Microsoft\Windows\Explorer" /v DisableSearchBoxSuggestions /f', shell=True)
-                    subprocess.run(r'reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Search" /v BingSearchEnabled /t REG_DWORD /d 1 /f', shell=True)
+                    engine.win32_delete_reg("HKCU", r"Software\Policies\Microsoft\Windows\Explorer", "DisableSearchBoxSuggestions")
+                    engine.win32_set_reg("HKCU", r"Software\Microsoft\Windows\CurrentVersion\Search", "BingSearchEnabled", "REG_DWORD", 1)
                     self.applied_tweaks.discard(t_id)
 
             # 6. Hidden Files
             elif t_id == "win11_show_hidden":
                 val = 1 if action == "apply" else 2
-                subprocess.run(f'reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v Hidden /t REG_DWORD /d {val} /f', shell=True)
+                engine.win32_set_reg("HKCU", r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "Hidden", "REG_DWORD", val)
                 if action == "apply": self.applied_tweaks.add(t_id)
                 else: self.applied_tweaks.discard(t_id)
-                self.restart_explorer_silent()
+                engine.win32_refresh_shell()
 
             # 7. Known File Extensions
             elif t_id == "win11_show_extensions":
                 val = 0 if action == "apply" else 1
-                subprocess.run(f'reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v HideFileExt /t REG_DWORD /d {val} /f', shell=True)
+                engine.win32_set_reg("HKCU", r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "HideFileExt", "REG_DWORD", val)
                 if action == "apply": self.applied_tweaks.add(t_id)
                 else: self.applied_tweaks.discard(t_id)
-                self.restart_explorer_silent()
+                engine.win32_refresh_shell()
 
             # 8. Sticky Keys
             elif t_id == "win11_disable_sticky":
                 flags = "506" if action == "apply" else "510"
-                subprocess.run(f'reg add "HKCU\Control Panel\Accessibility\StickyKeys" /v Flags /t REG_SZ /d {flags} /f', shell=True)
+                engine.win32_set_reg("HKCU", r"Control Panel\Accessibility\StickyKeys", "Flags", "REG_SZ", flags)
                 if action == "apply": self.applied_tweaks.add(t_id)
                 else: self.applied_tweaks.discard(t_id)
 
             # 9. Ultimate Power Plan
             elif t_id == "game_ultimate_power":
                 if action == "apply":
-                    subprocess.run("powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61", shell=True)
-                    subprocess.run("powercfg /setactive e9a42b02-d5df-448d-aa00-03f14749eb61", shell=True)
+                    subprocess.run(["powercfg.exe", "-duplicatescheme", "e9a42b02-d5df-448d-aa00-03f14749eb61"], shell=False, creationflags=CREATE_NO_WINDOW)
+                    subprocess.run(["powercfg.exe", "/setactive", "e9a42b02-d5df-448d-aa00-03f14749eb61"], shell=False, creationflags=CREATE_NO_WINDOW)
                     self.applied_tweaks.add(t_id)
                 else:
-                    # Revert to standard Balanced plan
-                    subprocess.run("powercfg /setactive 381b4222-f694-41f0-9685-ff5bb260df2e", shell=True)
+                    subprocess.run(["powercfg.exe", "/setactive", "381b4222-f694-41f0-9685-ff5bb260df2e"], shell=False, creationflags=CREATE_NO_WINDOW)
                     self.applied_tweaks.discard(t_id)
 
             # 10. GameDVR
             elif t_id == "game_disable_dvr":
                 val = 0 if action == "apply" else 1
-                subprocess.run(f'reg add "HKCU\System\GameConfigStore" /v GameDVR_Enabled /t REG_DWORD /d {val} /f', shell=True)
-                subprocess.run(f'reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\GameDVR" /v AllowGameDVR /t REG_DWORD /d {val} /f', shell=True)
+                engine.win32_set_reg("HKCU", r"System\GameConfigStore", "GameDVR_Enabled", "REG_DWORD", val)
+                engine.win32_set_reg("HKLM", r"SOFTWARE\Policies\Microsoft\Windows\GameDVR", "AllowGameDVR", "REG_DWORD", val)
                 if action == "apply": self.applied_tweaks.add(t_id)
                 else: self.applied_tweaks.discard(t_id)
 
-            # 11. DiagTrack Telemetry
+            # 11. DiagTrack Telemetry Service
             elif t_id == "priv_diagtrack":
                 if action == "apply":
-                    subprocess.run("sc stop DiagTrack && sc config DiagTrack start=disabled", shell=True)
+                    engine.win32_stop_service("DiagTrack")
+                    engine.win32_set_reg("HKLM", r"SYSTEM\CurrentControlSet\Services\DiagTrack", "Start", "REG_DWORD", 4)
                     self.applied_tweaks.add(t_id)
                 else:
-                    subprocess.run("sc config DiagTrack start=auto && sc start DiagTrack", shell=True)
+                    engine.win32_set_reg("HKLM", r"SYSTEM\CurrentControlSet\Services\DiagTrack", "Start", "REG_DWORD", 2)
                     self.applied_tweaks.discard(t_id)
 
-            # 12. Non-reversible Purge Actions
+            # 12. Explorer Shell Refresh
+            elif t_id == "diag_restart_explorer":
+                engine.win32_refresh_shell()
+                messagebox.showinfo("Success", "Windows Explorer notification cache refreshed.")
+                return
+
+            # 13. Flush DNS
+            elif t_id == "diag_flush_dns":
+                try:
+                    ctypes.windll.dnsapi.DnsFlushResolverCache()
+                except Exception:
+                    subprocess.run(["ipconfig.exe", "/flushdns"], shell=False, creationflags=CREATE_NO_WINDOW)
+                messagebox.showinfo("Success", "DNS resolver cache flushed.")
+                return
+
+            # 14. Purge Temp
             elif t_id == "junk_clean_temp":
                 temp = os.environ.get("TEMP", "")
                 c = 0
                 for r, dirs, files in os.walk(temp, topdown=False):
                     for f in files:
-                        try: os.remove(os.path.join(r, f)); c += 1
-                        except: pass
+                        try:
+                            os.remove(os.path.join(r, f))
+                            c += 1
+                        except OSError:
+                            pass
                 messagebox.showinfo("Success", f"Purged {c} temporary files.")
                 return
 
-            elif t_id == "diag_restart_explorer":
-                self.restart_explorer_silent()
-                return
-
-            elif t_id == "diag_flush_dns":
-                subprocess.run("ipconfig /flushdns", shell=True)
-                messagebox.showinfo("Success", "DNS resolver cache flushed.")
-                return
-
+            # 15. Recycle Bin
             elif t_id == "junk_empty_recycle":
                 ctypes.windll.shell32.SHEmptyRecycleBinW(None, None, 7)
                 messagebox.showinfo("Success", "Recycle bins emptied.")
@@ -914,9 +909,9 @@ class PhantomDesk(ctk.CTk):
 
         self.create_action_card(scroll, "🔒 Apply System Cloak (+s +h)", "Makes path invisible to File Explorer, even with hidden items enabled.", "Cloak Path", self.apply_path_stealth, T_DANGER, T_DANGER_HOV)
         self.create_action_card(scroll, "🔓 Remove System Cloak (-s -h)", "Restores standard folder visibility in File Explorer.", "Restore Path", self.remove_path_stealth, T_SUCCESS, T_SUCCESS_HOV)
-        self.create_action_card(scroll, "💥 Break Active File Locks", "Recycles shell handles to resolve 'File in use by another program' errors.", "Unlock Handle", self.break_file_lock, T_ACCENT, T_ACCENT_HOV)
+        self.create_action_card(scroll, "💥 Break Active File Locks", "Refreshes system handles to resolve 'File in use by another program' errors.", "Unlock Handle", self.break_file_lock, T_ACCENT, T_ACCENT_HOV)
         self.create_action_card(scroll, "🔑 Take Full Administrative Ownership", "Executes takeown & icacls to grant full access over protected system folders.", "Take Ownership", self.take_folder_ownership, T_ACCENT, T_ACCENT_HOV)
-        self.create_action_card(scroll, "🔥 Secure Zero-Byte Shredder", "Overwrites sectors with random noise before removal to block file recovery.", "Shred File", self.shred_selected_file, T_DANGER, T_DANGER_HOV)
+        self.create_action_card(scroll, "🔥 Secure Zero-Byte Shredder", "Overwrites file buffers with zeroes before removal to block recovery.", "Shred File", self.shred_selected_file, T_DANGER, T_DANGER_HOV)
 
     def create_action_card(self, parent, title, desc, btn_text, cmd, color, hover_color):
         card = ctk.CTkFrame(parent, fg_color=T_SURFACE, border_color=T_BORDER, border_width=1, corner_radius=10)
@@ -953,8 +948,9 @@ class PhantomDesk(ctk.CTk):
             winreg.CloseKey(write_key)
 
             if meta["directory"] and os.path.exists(meta["directory"]):
-                subprocess.run(f'attrib +h +s "{meta["directory"]}"', shell=True)
+                engine.win32_set_stealth(meta["directory"], True)
 
+            engine.win32_refresh_shell()
             meta["is_cloaked"] = True
             messagebox.showinfo("Success", f"Masked records & cloaked directory for:\n{self.selected_app_name}")
             self.render_app_list()
@@ -980,8 +976,9 @@ class PhantomDesk(ctk.CTk):
             winreg.CloseKey(write_key)
 
             if meta["directory"] and os.path.exists(meta["directory"]):
-                subprocess.run(f'attrib -h -s "{meta["directory"]}"', shell=True)
+                engine.win32_set_stealth(meta["directory"], False)
 
+            engine.win32_refresh_shell()
             meta["is_cloaked"] = False
             messagebox.showinfo("Success", f"Restored standard visibility for:\n{self.selected_app_name}")
             self.render_app_list()
@@ -1002,8 +999,8 @@ class PhantomDesk(ctk.CTk):
         save_path = filedialog.asksaveasfilename(defaultextension=".reg", filetypes=[("Registry Script", "*.reg")], initialfile=f"{self.selected_app_name}_backup.reg")
         if save_path:
             root_str = "HKLM" if meta["root"] == winreg.HKEY_LOCAL_MACHINE else "HKCU"
-            cmd = f'reg export "{root_str}\\{meta["route"]}" "{save_path}" /y'
-            if subprocess.run(cmd, shell=True).returncode == 0:
+            res = subprocess.run(["reg.exe", "export", f"{root_str}\\{meta['route']}", save_path, "/y"], shell=False, creationflags=CREATE_NO_WINDOW)
+            if res.returncode == 0:
                 messagebox.showinfo("Export Complete", f"Backup created:\n{save_path}")
 
     def direct_launch_app(self):
@@ -1053,7 +1050,7 @@ class PhantomDesk(ctk.CTk):
                 messagebox.showerror("Error", f"Failed renaming shortcut:\n{e}")
 
     # -------------------------------------------------------------------------
-    # File Shield Functions
+    # File Shield Functions (Win32 Native Engine)
     # -------------------------------------------------------------------------
     def browse_custom_folder(self):
         p = filedialog.askdirectory()
@@ -1070,16 +1067,20 @@ class PhantomDesk(ctk.CTk):
     def apply_path_stealth(self):
         p = self.custom_path_entry.get().strip()
         if p and os.path.exists(p):
-            subprocess.run(f'attrib +h +s "{p}"', shell=True)
-            messagebox.showinfo("Protected", f"Attributes (+h +s) applied to:\n{p}")
+            if engine.win32_set_stealth(p, stealth=True):
+                messagebox.showinfo("Protected", f"Native stealth attributes applied to:\n{p}")
+            else:
+                messagebox.showerror("Error", "Failed applying attributes to target path.")
         else:
             messagebox.showwarning("Invalid", "Please provide a valid file or folder path.")
 
     def remove_path_stealth(self):
         p = self.custom_path_entry.get().strip()
         if p and os.path.exists(p):
-            subprocess.run(f'attrib -h -s "{p}"', shell=True)
-            messagebox.showinfo("Restored", f"Attributes (-h -s) removed from:\n{p}")
+            if engine.win32_set_stealth(p, stealth=False):
+                messagebox.showinfo("Restored", f"Attributes removed and visibility restored for:\n{p}")
+            else:
+                messagebox.showerror("Error", "Failed restoring attributes on target path.")
         else:
             messagebox.showwarning("Invalid", "Please provide a valid file or folder path.")
 
@@ -1090,19 +1091,20 @@ class PhantomDesk(ctk.CTk):
             return
         base_name = os.path.basename(p)
         if base_name.lower().endswith(".exe"):
-            subprocess.run(f'taskkill /F /IM "{base_name}"', shell=True)
+            subprocess.run(["taskkill.exe", "/F", "/IM", base_name], shell=False, creationflags=CREATE_NO_WINDOW)
             messagebox.showinfo("Lock Terminated", f"Sent terminate signal to {base_name}.")
         else:
-            self.restart_explorer_silent()
-            messagebox.showinfo("Shell Cleared", "Explorer shell recycled to release open directory handles.")
+            engine.win32_refresh_shell()
+            messagebox.showinfo("Shell Refreshed", "Shell notification broadcasted to clear open directory handles.")
 
     def take_folder_ownership(self):
         p = self.custom_path_entry.get().strip()
         if not p or not os.path.exists(p):
             messagebox.showwarning("Invalid", "Target path does not exist.")
             return
-        cmd = f'takeown /F "{p}" /R /D Y && icacls "{p}" /grant administrators:F /T'
-        subprocess.run(cmd, shell=True)
+        # Run process arguments directly without shell invocation
+        subprocess.run(["takeown.exe", "/F", p, "/R", "/D", "Y"], shell=False, creationflags=CREATE_NO_WINDOW)
+        subprocess.run(["icacls.exe", p, "/grant", "administrators:F", "/T"], shell=False, creationflags=CREATE_NO_WINDOW)
         messagebox.showinfo("Ownership Granted", f"Administrative permissions assigned to:\n{p}")
 
     def shred_selected_file(self):
@@ -1111,19 +1113,10 @@ class PhantomDesk(ctk.CTk):
             messagebox.showwarning("Invalid", "Please select a specific individual file to shred.")
             return
         if messagebox.askyesno("Confirm Shred", f"Permanently overwrite and destroy:\n{p}?"):
-            try:
-                size = os.path.getsize(p)
-                with open(p, "ba+", buffering=0) as f:
-                    f.seek(0)
-                    f.write(os.urandom(size))
-                os.remove(p)
-                messagebox.showinfo("Shredded", "File sectors overwritten with random noise and removed.")
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed shredding target file:\n{e}")
-
-    def restart_explorer_silent(self):
-        subprocess.run("taskkill /f /im explorer.exe", shell=True)
-        subprocess.Popen("explorer.exe")
+            if engine.win32_shred_file(p):
+                messagebox.showinfo("Shredded", "File safely zero-buffered and removed from disk.")
+            else:
+                messagebox.showerror("Error", "Failed shredding target file.")
 
 
 # -----------------------------------------------------------------------------
